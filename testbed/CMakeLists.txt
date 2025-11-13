@@ -7,6 +7,11 @@ add_executable(${PROJECT_NAME} main.cpp)
 
 set_target_properties(${PROJECT_NAME} PROPERTIES CXX_STANDARD_REQUIRED TRUE CXX_STANDARD 20)
 
+if(MSVC)
+	target_compile_options(${PROJECT_NAME} PRIVATE /wd4201)
+	target_compile_definitions(${PROJECT_NAME} PRIVATE -D_USE_MATH_DEFINES)
+endif()
+
 find_package(Vulkan REQUIRED)
 
 FetchContent_Declare(
