@@ -5,6 +5,7 @@ layout (location = 1) in vec3 f_normal;
 layout (location = 2) in vec2 f_uv;
 
 layout (location = 0) out vec4 final_color;
+layout (location = 3) in vec3 v_color;
 
 layout (binding = 1, std140) uniform ModelUniforms {
 	mat4 model;
@@ -12,5 +13,5 @@ layout (binding = 1, std140) uniform ModelUniforms {
 };
 
 void main() {
-	final_color = vec4(albedo_color, 1.0f);
+	final_color = vec4(v_color, 1.0f);
 }
