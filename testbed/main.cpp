@@ -26,11 +26,19 @@ struct Vertex {
 
 struct SceneUniforms {
 	veekay::mat4 view_projection;
+	veekay::vec3 view_position; float _pad0;
+
+	veekay::vec3 ambient_light_intensity; float _pad1;
+
+	veekay::vec3 sun_light_direction; float _pad2;
+	veekay::vec3 sun_light_color; float _pad3;
 };
 
 struct ModelUniforms {
 	veekay::mat4 model;
 	veekay::vec3 albedo_color; float _pad0;
+	veekay::vec3 specular_color;
+	float shininess;
 };
 
 struct Mesh {
@@ -132,7 +140,7 @@ veekay::mat4 Camera::view() const {
 	const auto rot_mtx_y = veekay::mat4::rotation({.0, -1., .0}, toRadians(rotation.y));
 	const auto rot_mtx_z = veekay::mat4::rotation({.0, .0, 1.}, toRadians(rotation.z));
 
-	return t * rot_mtx_x * rot_mtx_y * rot_mtx_z;
+	return veekay::mat4::transpose(t * rot_mtx_x * rot_mtx_y * rot_mtx_z);
 }
 
 veekay::mat4 Camera::view_projection(float aspect_ratio) const {
@@ -521,10 +529,10 @@ void initialize(VkCommandBuffer cmd) {
 		//  |       \  |
 		// (v3)------(v2)
 		std::vector<Vertex> vertices = {
-			{{-5.0f, 0.0f, 5.0f}, {0.0f, -1.0f, 0.0f}, {0.0f, 0.0f}},
-			{{5.0f, 0.0f, 5.0f}, {0.0f, -1.0f, 0.0f}, {1.0f, 0.0f}},
-			{{5.0f, 0.0f, -5.0f}, {0.0f, -1.0f, 0.0f}, {1.0f, 1.0f}},
-			{{-5.0f, 0.0f, -5.0f}, {0.0f, -1.0f, 0.0f}, {0.0f, 1.0f}},
+			{{-5.0f, 0.0f, 5.0f}, {0.0f, -1.0f, 0.0f}, {0.0f, 0.0f}, {1,1,1}},
+			{{5.0f, 0.0f, 5.0f}, {0.0f, -1.0f, 0.0f}, {1.0f, 0.0f}, {1,1,1}},
+			{{5.0f, 0.0f, -5.0f}, {0.0f, -1.0f, 0.0f}, {1.0f, 1.0f}, {1,1,1}},
+			{{-5.0f, 0.0f, -5.0f}, {0.0f, -1.0f, 0.0f}, {0.0f, 1.0f}, {1,1,1}},
 		};
 
 		std::vector<uint32_t> indices = {
@@ -588,6 +596,11 @@ void initialize(VkCommandBuffer cmd) {
 
 		cube_mesh.indices = uint32_t(indices.size());
 	}
+
+	models.emplace_back(Model{
+		.mesh = plane_mesh,
+		.albedo_color = veekay::vec3{1.0f, 0.0f, 0.0f}
+	});
 
 	models.emplace_back(Model{
 		.mesh = cube_mesh,
@@ -683,11 +696,11 @@ void update(double time) {
 			auto move_delta = mouse::cursorDelta();
 
 			const float rotate_x = -90 * move_delta.y / veekay::app.window_height;
-			const float rotate_y = 90 * move_delta.x / veekay::app.window_width;
+			const float rotate_y = -90 * move_delta.x / veekay::app.window_width;
 			camera.rotation.x += rotate_x;
 			camera.rotation.y += rotate_y;
 		}
-		auto view_t = veekay::mat4::transpose(camera.view());
+		auto view_t = camera.view();
 
 		veekay::vec3 right = veekay::vec3::normalized({view_t[0][0], view_t[0][1], view_t[0][2]});
 		veekay::vec3 up = veekay::vec3::normalized({-view_t[1][0], -view_t[1][1], -view_t[1][2]});
@@ -715,6 +728,10 @@ void update(double time) {
 	float aspect_ratio = float(veekay::app.window_width) / float(veekay::app.window_height);
 	SceneUniforms scene_uniforms{
 		.view_projection = camera.view_projection(aspect_ratio),
+		.view_position = camera.position,
+		.ambient_light_intensity = {0.1, 0.1, 0.1},
+		.sun_light_direction = {0, 1, 0},
+		.sun_light_color = {0.0, 0.9, 0.9},
 	};
 
 	std::vector<ModelUniforms> model_uniforms(models.size());
@@ -724,6 +741,8 @@ void update(double time) {
 
 		uniforms.model = model.transform.matrix();
 		uniforms.albedo_color = model.albedo_color;
+		uniforms.specular_color = {0.5, 0.5, 0.5};
+		uniforms.shininess = 64;
 	}
 
 	*(SceneUniforms*)scene_uniforms_buffer->mapped_region = scene_uniforms;
