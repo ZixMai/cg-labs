@@ -39,7 +39,7 @@ layout(binding = 2, std430) readonly buffer SpotLights {
     SpotLight spot_lights[];
 };
 
-layout (binding = 3) uniform sampler2D shadow_texture;
+layout (binding = 3) uniform sampler2DShadow shadow_texture;
 
 layout (set = 1, binding = 0) uniform sampler2D specular_texture;
 layout (set = 1, binding = 1) uniform sampler2D emissive_texture;
@@ -48,24 +48,12 @@ float shadow_calculation(vec4 frag_shadow_pos) {
     vec3 proj_coords = frag_shadow_pos.xyz / frag_shadow_pos.w;
     proj_coords.xy = proj_coords.xy * 0.5 + 0.5;
 
-    float shadow = 0.0;
-    if (proj_coords.x >= 0.0 && proj_coords.x <= 1.0 && proj_coords.y >= 0.0 && proj_coords.y <= 1.0) {
-        float currentDepth = proj_coords.z;
-        float bias = 0.001;
-
-        // PCF (Percentage Closer Filtering) for soft shadows
-        vec2 texelSize = 1.0 / textureSize(shadow_texture, 0);
-        for(int x = -1; x <= 1; ++x) {
-            for(int y = -1; y <= 1; ++y) {
-                vec2 offset = vec2(x, y) * texelSize;
-                float closestDepth = texture(shadow_texture, proj_coords.xy + offset).r;
-                shadow += (currentDepth - bias) > closestDepth ? 1.0 : 0.0;
-            }
-        }
-        shadow /= 9.0;
+    if (proj_coords.x < 0.0 || proj_coords.x > 1.0 ||
+    proj_coords.y < 0.0 || proj_coords.y > 1.0) {
+        return 1.0;
     }
 
-    return 1 - shadow;
+    return texture(shadow_texture, vec3(proj_coords.xy, proj_coords.z - 0.001));
 }
 
 void main() {
@@ -119,17 +107,20 @@ void main() {
         vec3 spot_direction = normalize(light_position - f_position);
         float spot_angle = -dot(light_direction, spot_direction);
 
-        if (spot_angle > light_angle) {
-            // Прибавляем код освещения по Блинн-Фонгу
-            vec3 h_vector = normalize(view_dir + spot_direction);
-            vec3 light_view = light_position - f_position;
-            vec3 light_view_normal = normalize(light_view);
-            float light_shade = max(0.0f, dot(normal, spot_direction));
-            light_factor += light_shade;
-            float light_falloff = light_radius * light_radius / dot(light_view, light_view);
-            vec3 light_spec = texture(specular_texture, mapped_uv).rgb * pow(max(0.0f, dot(normal, h_vector)), shininess);
+        float epsilon = 0.05;
+        float intensity = smoothstep(light_angle, light_angle + epsilon, spot_angle);
 
-            color += light_shade * light_falloff * (light.color * albedo_color + light_spec);
+        if (intensity > 0.0) {
+            vec3 light_view = light_position - f_position;
+            vec3 h_vector = normalize(view_dir + spot_direction);
+            float light_shade = max(0.0f, dot(normal, spot_direction));
+            float light_falloff = light_radius * light_radius / dot(light_view, light_view);
+            light_factor += light_shade * intensity;
+            vec3 light_spec = specular_color *
+            pow(max(0.0f, dot(normal, h_vector)), shininess);
+
+            color += intensity * light_shade * light_falloff *
+            (light.color * albedo_color + light_spec);
         }
     }
 

@@ -681,6 +681,28 @@ void initialize(VkCommandBuffer cmd) {
 									   }
 		}
 
+		{
+
+			VkSamplerCreateInfo infoS{
+				.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
+				.magFilter = VK_FILTER_LINEAR,
+				.minFilter = VK_FILTER_LINEAR,
+				.mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST,
+				// Если вышли за пределы текстурных координат, то рисуем цвет бортика
+				.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER,
+				.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER,
+				.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
+				// Текстура поддерживает сравнение глубины
+				.compareEnable = VK_TRUE,
+				.compareOp = VK_COMPARE_OP_LESS,
+				.minLod = 0.0f,
+				.maxLod = VK_LOD_CLAMP_NONE,
+				// Если вышли за пределы текстурных координат, рисуем белый цвет бортика???
+				.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE,
+			};
+
+			vkCreateSampler(device, &infoS, nullptr, &shadow.sampler);
+		}
 		// NOTE: Descriptor set layout specification
 		{
 			VkDescriptorSetLayoutBinding bindings[] = {
@@ -707,6 +729,7 @@ void initialize(VkCommandBuffer cmd) {
 					.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
 					.descriptorCount = 1,
 					.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
+					.pImmutableSamplers = &shadow.sampler
 				},
 			};
 
@@ -1025,26 +1048,6 @@ void initialize(VkCommandBuffer cmd) {
 
 		vkCreateGraphicsPipelines(device, nullptr, 1, &infoG, nullptr, &shadow.pipeline);
 
-		VkSamplerCreateInfo infoS{
-			.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
-			.magFilter = VK_FILTER_LINEAR,
-			.minFilter = VK_FILTER_LINEAR,
-			.mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST,
-			// Если вышли за пределы текстурных координат, то рисуем цвет бортика
-			.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER,
-			.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER,
-			.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
-			// Текстура поддерживает сравнение глубины
-			.compareEnable = VK_FALSE,
-			.compareOp = VK_COMPARE_OP_LESS,
-			.minLod = 0.0f,
-			.maxLod = VK_LOD_CLAMP_NONE,
-			// Если вышли за пределы текстурных координат, рисуем белый цвет бортика???
-			.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE,
-		};
-
-		vkCreateSampler(device, &infoS, nullptr, &shadow.sampler);
-
 		shadow.uniform_buffer = new veekay::graphics::Buffer(
 			sizeof(veekay::mat4), nullptr,
 		VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT);
@@ -1168,7 +1171,7 @@ void initialize(VkCommandBuffer cmd) {
 
 		VkDescriptorImageInfo image_infos[] = {
 			{
-				.sampler = shadow.sampler,         // Какой сэмплер будет использоваться
+				.sampler = VK_NULL_HANDLE,         // Какой сэмплер будет использоваться
 				.imageView = shadow.depth_image_view, // Какая текстура будет использоваться
 				// Формат текстуры будет использован оптимальный для чтения в шейдере
 				.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
@@ -1374,6 +1377,20 @@ void initialize(VkCommandBuffer cmd) {
 // NOTE: Destroy resources here, do not cause leaks in your program!
 void shutdown() {
 	VkDevice& device = veekay::app.vk_device;
+
+	vkDestroyPipeline(device,          shadow.pipeline,           nullptr);
+	vkDestroyPipelineLayout(device,    shadow.pipeline_layout,    nullptr);
+	vkDestroyShaderModule(device,      shadow.vertex_shader,      nullptr);
+
+	vkDestroyDescriptorSetLayout(device, shadow.descriptor_set_layout, nullptr);
+
+	vkDestroyImageView(device,         shadow.depth_image_view,   nullptr);
+	vkDestroyImage(device,             shadow.depth_image,        nullptr);
+	vkFreeMemory(device,               shadow.depth_image_memory, nullptr);
+
+	delete shadow.uniform_buffer;
+
+	vkDestroySampler(device,           shadow.sampler,            nullptr);
 
 	vkDestroySampler(device, missing_texture_sampler, nullptr);
 	vkDestroySampler(device, texture_sampler, nullptr);
