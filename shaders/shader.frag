@@ -66,15 +66,11 @@ void main() {
         vec3 half_vector = normalize(view_dir - camera_light_direction);
 
         float camera_shade = max(0.0f, -dot(camera_light_direction, normal));
-//        vec3 camera_diffuse = texture(emissive_texture, mapped_uv).rgb;
-        //        f_color * albedo_color
         vec3 camera_specular = base_col * pow(max(0.0f, dot(normal, half_vector)), shininess);
         vec3 camera_light_intensity = camera_shade * camera_light_color *
         (camera_diffuse + camera_specular) ;
 
         color += camera_light_intensity;
-
-        // NOTE gpt idea
         light_factor += camera_shade;
     }
 

@@ -23,21 +23,8 @@ struct Vertex {
 	veekay::vec3 color;
 };
 
-std::array<std::string, 3> cords = {
-	"X",
-	"Y",
-	"Z"
-};
-
-std::array<std::string, 3> colors = {
-	"Red",
-	"Green",
-	"Blue"
-};
-
 veekay::vec4 white = {1.0f, 1.0f, 1.0f, 1.0f};
 veekay::vec4 black = {0.0f, 0.0f, 0.0f, 0.0f};
-
 
 struct SceneUniforms {
 	veekay::mat4 view_projection;
@@ -64,7 +51,7 @@ struct SpotLight {
 	float radius;
 	veekay::vec3 direction;
 	float angle; // Косинус угла
-	veekay::vec3 color; //float _pad0;
+	veekay::vec3 color;
 	uint32_t enabled;
 };
 
@@ -158,7 +145,7 @@ inline namespace {
 	 {
 	 	 .position = {0, -5, 0},
 		 .radius = 3,
-		 .direction = {0, -1, 0}, // neutral, will be overwritten each frame
+		 .direction = {0, -1, 0},
 		 .angle = std::cosf(M_PI / 6),
 		 .color = {1, 1, 1},
 		 .enabled = true,
@@ -324,7 +311,6 @@ veekay::mat4 Camera::view_projection(float aspect_ratio) const {
 }
 
 // NOTE: Loads shader byte code from file
-// NOTE: Your shaders are compiled via CMake with this code too, look it up
 VkShaderModule loadShaderModule(const char* path) {
 	std::ifstream file(path, std::ios::binary | std::ios::ate);
 	size_t size = file.tellg();
@@ -989,10 +975,10 @@ void initialize(VkCommandBuffer cmd) {
 		.mesh = cube_mesh,
 		.transform = Transform{
 			.position = spot_lights[0].position,      // start exactly at the light
-			.scale    = {0.3f, 0.3f, 0.3f},          // smaller cube
+			.scale    = {0.3f, 0.3f, 0.3f},
 		},
-		.albedo_color = veekay::vec3{1.0f, 1.0f, 0.0f}, // yellow so it’s visible
-		.is_light_source = true                                // renders bright white in the shader
+		.albedo_color = veekay::vec3{1.0f, 1.0f, 0.0f},
+		.is_light_source = true
 	});
 	spotlight_model_index = models.size() - 1;
 }
