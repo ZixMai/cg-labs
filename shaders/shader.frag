@@ -4,11 +4,13 @@ layout (location = 0) in vec3 f_position;
 layout (location = 1) in vec3 f_normal;
 layout (location = 2) in vec2 f_uv;
 layout (location = 3) in vec3 f_color;
+layout (location = 4) in vec4 f_shadow_position;
 
 layout (location = 0) out vec4 final_color;
 
 layout(binding = 0, std140) uniform SceneUniforms {
 	mat4 view_projection;
+    mat4 shadow_projection;
     vec3 view_position;
 	vec3 ambient_light_intensity;
 	vec3 camera_light_direction;
@@ -37,17 +39,31 @@ layout(binding = 2, std430) readonly buffer SpotLights {
     SpotLight spot_lights[];
 };
 
+layout (binding = 3) uniform sampler2DShadow shadow_texture;
+
 layout (set = 1, binding = 0) uniform sampler2D specular_texture;
 layout (set = 1, binding = 1) uniform sampler2D emissive_texture;
+
+float shadow_calculation(vec4 frag_shadow_pos) {
+    vec3 proj_coords = frag_shadow_pos.xyz / frag_shadow_pos.w;
+    proj_coords.xy = proj_coords.xy * 0.5 + 0.5;
+
+    if (proj_coords.x < 0.0 || proj_coords.x > 1.0 ||
+    proj_coords.y < 0.0 || proj_coords.y > 1.0) {
+        return 1.0;
+    }
+
+    return texture(shadow_texture, vec3(proj_coords.xy, proj_coords.z - 0.001));
+}
 
 void main() {
     vec2 mapped_uv = vec2(f_uv.x + sin(f_uv.y * 3.14 / 2 + 0.5) * 0.2, f_uv.y);
     // ----- wave‑distortion of texture coordinates --------------------------
-//    const float wave_freq = 10.0;// number of waves across the quad
-//    const float wave_amp  = 0.05;// maximum offset in UV space
-//    mapped_uv = f_uv +
-//    vec2(sin(f_uv.y * wave_freq) * wave_amp, // horizontal wobble
-//    cos(f_uv.x * wave_freq) * wave_amp);// vertical wobble
+    const float wave_freq = 10.0;// number of waves across the quad
+    const float wave_amp  = 0.05;// maximum offset in UV space
+    mapped_uv = f_uv +
+    vec2(sin(f_uv.y * wave_freq) * wave_amp, // horizontal wobble
+    cos(f_uv.x * wave_freq) * wave_amp);// vertical wobble
 
     vec3 normal = normalize(f_normal);
     vec3 color = ambient_light_intensity;
@@ -91,17 +107,20 @@ void main() {
         vec3 spot_direction = normalize(light_position - f_position);
         float spot_angle = -dot(light_direction, spot_direction);
 
-        if (spot_angle > light_angle) {
-            // Прибавляем код освещения по Блинн-Фонгу
-            vec3 h_vector = normalize(view_dir + spot_direction);
-            vec3 light_view = light_position - f_position;
-            vec3 light_view_normal = normalize(light_view);
-            float light_shade = max(0.0f, dot(normal, spot_direction));
-            light_factor += light_shade;
-            float light_falloff = light_radius * light_radius / dot(light_view, light_view);
-            vec3 light_spec = texture(specular_texture, mapped_uv).rgb * pow(max(0.0f, dot(normal, h_vector)), shininess);
+        float epsilon = 0.05;
+        float intensity = smoothstep(light_angle, light_angle + epsilon, spot_angle);
 
-            color += light_shade * light_falloff * (light.color * albedo_color + light_spec);
+        if (intensity > 0.0) {
+            vec3 light_view = light_position - f_position;
+            vec3 h_vector = normalize(view_dir + spot_direction);
+            float light_shade = max(0.0f, dot(normal, spot_direction));
+            float light_falloff = light_radius * light_radius / dot(light_view, light_view);
+            light_factor += light_shade * intensity;
+            vec3 light_spec = specular_color *
+            pow(max(0.0f, dot(normal, h_vector)), shininess);
+
+            color += intensity * light_shade * light_falloff *
+            (light.color * albedo_color + light_spec);
         }
     }
 
@@ -120,6 +139,7 @@ void main() {
 
     // ---------- 5. финальный цвет --------------------------------------------
     final_color = vec4(surface + spec_col, 1.0);
+    final_color *= shadow_calculation(f_shadow_position);
 
     // куб-«лампочка» оставляем белым
     if (is_light_source == 1)

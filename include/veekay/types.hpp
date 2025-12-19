@@ -400,6 +400,32 @@ union mat4 {
 		return result;
 	}
 
+	static mat4 look_at(const vec3& eye, const vec3& target) {
+		const auto forward = veekay::vec3::normalized(target - eye);
+		constexpr auto temp_up = veekay::vec3{0, 1, 0};
+		const auto right = veekay::vec3::normalized(veekay::vec3::cross(temp_up, forward));
+		const auto up = veekay::vec3::normalized(veekay::vec3::cross(forward, right));
+
+		return veekay::mat4{
+			right.x, up.x, forward.x, 0,
+			right.y, up.y, forward.y, 0,
+			right.z, up.z, forward.z, 0,
+			-veekay::vec3::dot(right, eye), -veekay::vec3::dot(up, eye),
+			-veekay::vec3::dot(forward, eye), 1
+		};
+	}
+
+	static mat4 orthographic(float left, float right, float bottom, float top, float near, float far) {
+		mat4 result = identity();
+		result[0][0] = 2.0f / (right - left);
+		result[1][1] = 2.0f / (top - bottom);
+		result[2][2] = 1.0f / (far - near);
+		result[0][3] = -(right + left) / (right - left);
+		result[1][3] = -(top + bottom) / (top - bottom);
+		result[2][3] = -near / (far - near);
+		return result;
+	}
+
 	static mat4 transpose(const mat4& matrix) {
 		mat4 result{};
 
