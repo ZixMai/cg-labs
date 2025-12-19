@@ -3,10 +3,12 @@
 layout (location = 0) in vec3 v_position;
 layout (location = 1) in vec3 v_normal;
 layout (location = 2) in vec2 v_uv;
+layout (location = 3) in vec3 v_color;
 
 layout (location = 0) out vec3 f_position;
 layout (location = 1) out vec3 f_normal;
 layout (location = 2) out vec2 f_uv;
+layout (location = 3) out vec3 f_color;
 
 layout (binding = 0, std140) uniform SceneUniforms {
 	mat4 view_projection;
@@ -26,4 +28,6 @@ void main() {
 	f_position = position.xyz;
 	f_normal = normal.xyz;
 	f_uv = v_uv;
+
+	f_color = v_color;
 }
