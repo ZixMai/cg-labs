@@ -742,7 +742,7 @@ void update(double time) {
 	ImGui::SliderFloat("Rotation X", &camera.rotation.x, -180.f, 180.f);
 	ImGui::SliderFloat("Rotation Y", &camera.rotation.y, -180.f, 180.f);
 	ImGui::SliderFloat("Rotation Z", &camera.rotation.z, -180.f, 180.f);
-	for (int i = 1; i < models.size(); ++i) {
+	for (int i = 1; i < models.size() - 1; ++i) {
 		ImGui::SliderFloat(std::format("Scale X Model {}", i + 1).c_str(), &models[i].transform.scale.x, .01, 5.f);
 		ImGui::SliderFloat(std::format("Scale Y Model {}", i + 1).c_str(), &models[i].transform.scale.y, .01, 5.f);
 		ImGui::SliderFloat(std::format("Scale Z Model {}", i + 1).c_str(), &models[i].transform.scale.z, .01, 5.f);
