@@ -4,11 +4,13 @@ layout (location = 0) in vec3 f_position;
 layout (location = 1) in vec3 f_normal;
 layout (location = 2) in vec2 f_uv;
 layout (location = 3) in vec3 f_color;
+layout (location = 4) in vec4 f_shadow_position;
 
 layout (location = 0) out vec4 final_color;
 
 layout(binding = 0, std140) uniform SceneUniforms {
 	mat4 view_projection;
+    mat4 shadow_projection;
     vec3 view_position;
 	vec3 ambient_light_intensity;
 	vec3 camera_light_direction;
@@ -37,17 +39,43 @@ layout(binding = 2, std430) readonly buffer SpotLights {
     SpotLight spot_lights[];
 };
 
+layout (binding = 3) uniform sampler2D shadow_texture;
+
 layout (set = 1, binding = 0) uniform sampler2D specular_texture;
 layout (set = 1, binding = 1) uniform sampler2D emissive_texture;
+
+float shadow_calculation(vec4 frag_shadow_pos) {
+    vec3 proj_coords = frag_shadow_pos.xyz / frag_shadow_pos.w;
+    proj_coords.xy = proj_coords.xy * 0.5 + 0.5;
+
+    float shadow = 0.0;
+    if (proj_coords.x >= 0.0 && proj_coords.x <= 1.0 && proj_coords.y >= 0.0 && proj_coords.y <= 1.0) {
+        float currentDepth = proj_coords.z;
+        float bias = 0.001;
+
+        // PCF (Percentage Closer Filtering) for soft shadows
+        vec2 texelSize = 1.0 / textureSize(shadow_texture, 0);
+        for(int x = -1; x <= 1; ++x) {
+            for(int y = -1; y <= 1; ++y) {
+                vec2 offset = vec2(x, y) * texelSize;
+                float closestDepth = texture(shadow_texture, proj_coords.xy + offset).r;
+                shadow += (currentDepth - bias) > closestDepth ? 1.0 : 0.0;
+            }
+        }
+        shadow /= 9.0;
+    }
+
+    return 1 - shadow;
+}
 
 void main() {
     vec2 mapped_uv = vec2(f_uv.x + sin(f_uv.y * 3.14 / 2 + 0.5) * 0.2, f_uv.y);
     // ----- wave‑distortion of texture coordinates --------------------------
-//    const float wave_freq = 10.0;// number of waves across the quad
-//    const float wave_amp  = 0.05;// maximum offset in UV space
-//    mapped_uv = f_uv +
-//    vec2(sin(f_uv.y * wave_freq) * wave_amp, // horizontal wobble
-//    cos(f_uv.x * wave_freq) * wave_amp);// vertical wobble
+    const float wave_freq = 10.0;// number of waves across the quad
+    const float wave_amp  = 0.05;// maximum offset in UV space
+    mapped_uv = f_uv +
+    vec2(sin(f_uv.y * wave_freq) * wave_amp, // horizontal wobble
+    cos(f_uv.x * wave_freq) * wave_amp);// vertical wobble
 
     vec3 normal = normalize(f_normal);
     vec3 color = ambient_light_intensity;
@@ -120,6 +148,7 @@ void main() {
 
     // ---------- 5. финальный цвет --------------------------------------------
     final_color = vec4(surface + spec_col, 1.0);
+    final_color *= shadow_calculation(f_shadow_position);
 
     // куб-«лампочка» оставляем белым
     if (is_light_source == 1)
