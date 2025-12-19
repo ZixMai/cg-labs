@@ -73,16 +73,19 @@ void main() {
         vec3 spot_direction = normalize(light_position - f_position);
         float spot_angle = -dot(light_direction, spot_direction);
 
-        if (spot_angle > light_angle) {
-            // Прибавляем код освещения по Блинн-Фонгу
-            vec3 h_vector = normalize(view_dir + spot_direction);
+        float epsilon = 0.05;
+        float intensity = smoothstep(light_angle, light_angle + epsilon, spot_angle);
+
+        if (intensity > 0.0) {
             vec3 light_view = light_position - f_position;
-            vec3 light_view_normal = normalize(light_view);
+            vec3 h_vector = normalize(view_dir + spot_direction);
             float light_shade = max(0.0f, dot(normal, spot_direction));
             float light_falloff = light_radius * light_radius / dot(light_view, light_view);
-            vec3 light_spec = specular_color * pow(max(0.0f, dot(normal, h_vector)), shininess);
+            vec3 light_spec = specular_color *
+            pow(max(0.0f, dot(normal, h_vector)), shininess);
 
-            color += light_shade * light_falloff * (light.color * albedo_color + light_spec);
+            color += intensity * light_shade * light_falloff *
+            (light.color * albedo_color + light_spec);
         }
     }
 

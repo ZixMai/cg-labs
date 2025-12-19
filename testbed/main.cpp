@@ -738,6 +738,7 @@ void shutdown() {
 
 void update(double time) {
 	ImGui::Begin("Controls:");
+	ImGui::Checkbox("Camera light", &camera.enable_camera_light);
 	ImGui::SliderFloat("Rotation X", &camera.rotation.x, -180.f, 180.f);
 	ImGui::SliderFloat("Rotation Y", &camera.rotation.y, -180.f, 180.f);
 	ImGui::SliderFloat("Rotation Z", &camera.rotation.z, -180.f, 180.f);
@@ -763,7 +764,6 @@ void update(double time) {
 			model.transform.scale = {1, 1, 1};
 		}
 	}
-	ImGui::Checkbox("Camera light", &camera.enable_camera_light);
 	ImGui::SliderFloat("Animation speed", &camera.speed, 0.01, 5);
 	ImGui::End();
 
